@@ -47,6 +47,11 @@ jobs:
       - name: Fix gradlew permissions
         run: chmod +x gradlew
 
+      - name: Check wrapper jar exists
+        run: |
+          ls -lah gradle/wrapper
+          file gradle/wrapper/gradle-wrapper.jar  
+
       - name: Run Review Bot
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
