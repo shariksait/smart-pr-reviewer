@@ -6,7 +6,7 @@ on:
 
 jobs:
   review:
-    if: github.event.issue.pull_request != null && contains(toLower(github.event.comment.body), 'review pr')
+    if: github.event.issue.pull_request != null && github.event.comment.body matches '(?i).*review pr.*'
     runs-on: ubuntu-latest
 
     permissions:
