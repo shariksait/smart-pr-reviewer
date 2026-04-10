@@ -31,10 +31,10 @@ public class ClaudeReview {
       int relativeLine = issue.getInt("relativeLine");
       String comment = issue.getString("comment");
 
-      int actualLine = mapToActualLine(fileMap, file, relativeLine);
+      int position = mapToPosition(fileMap, file, relativeLine);
 
-      if (actualLine != -1) {
-        postInlineComment(file, actualLine, comment);
+      if (position != -1) {
+        postInlineComment(file, position, comment);
       }
     }
     System.out.println("Review completed.");
@@ -79,9 +79,12 @@ Each item MUST follow this exact structure:
 }
 
 Rules:
-- relativeLine refers ONLY to added lines (+)
-- Count starts from 1 per file
-- Do NOT use actual file line numbers
+- relativeLine is the 1-based index of the added line (+) within the file
+  (e.g. the 1st "+" line in the file = relativeLine 1, the 3rd = relativeLine 3)
+- Count ONLY lines beginning with "+" (excluding the "+++ " file header lines)
+- Reset the count to 1 for each new file in the diff
+- Do NOT use actual file line numbers or diff position numbers
+
 ------------------------
 REVIEW PRIORITIES
 ------------------------
@@ -105,7 +108,7 @@ Focus on issues in this priority order:
 - Violations of separation of concerns
 - Poor layering (Controller/Service/Repository misuse)
 - Tight coupling or poor abstractions
-- Unnecessary complexity or “clever” code
+- Unnecessary complexity or "clever" code
 
 4. Performance
 - Inefficient loops or repeated API/DB calls
@@ -142,7 +145,7 @@ SEVERITY RULES
 OUTPUT RULES
 ------------------------
 
-- Use ONLY line numbers from added lines (+) in the diff
+- relativeLine must be the 1-based index of the "+" line within its file (e.g. 1st "+" line = 1, 5th = 5)
 - Be precise and concise (max 2 sentences per comment)
 - Suggest a fix or improvement whenever possible
 - Do NOT guess missing context
@@ -208,19 +211,19 @@ DIFF
   }
 
   // ---------------- INLINE COMMENT ----------------
-  static void postInlineComment(String file, int line, String comment) throws Exception {
+  static void postInlineComment(String file, int position, String comment) throws Exception {
 
+    // Uses "position" (diff offset) as required by the GitHub PR Review Comments API
     String body =
         """
-        {
-          "body": "%s",
-          "commit_id": "%s",
-          "path": "%s",
-          "line": %d,
-          "side": "RIGHT"
-        }
-        """
-            .formatted(escape(comment), System.getenv("PR_SHA"), file, line);
+            {
+              "body": "%s",
+              "commit_id": "%s",
+              "path": "%s",
+              "position": %d
+            }
+            """
+            .formatted(escape(comment), System.getenv("PR_SHA"), file, position);
 
     String repo = System.getenv("REPO");
     String pr = System.getenv("PR");
@@ -238,17 +241,20 @@ DIFF
 
   // ---------------- ESCAPE JSON ----------------
   static String escape(String s) {
-    return s.replace("\"", "\\\"");
+    return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
   }
 
+  // ---------------- DIFF PARSING ----------------
   static class DiffLine {
     String file;
-    int lineNumber;
+    int lineNumber; // actual line number in the new file (for reference)
+    int position; // diff position — what the GitHub API requires
     String content;
 
-    DiffLine(String file, int lineNumber, String content) {
+    DiffLine(String file, int lineNumber, int position, String content) {
       this.file = file;
       this.lineNumber = lineNumber;
+      this.position = position;
       this.content = content;
     }
   }
@@ -258,6 +264,7 @@ DIFF
 
     String currentFile = null;
     int newLine = 0;
+    int diffPosition = 0; // 1-indexed offset within the file's diff hunks; resets per file
 
     String[] lines = diff.split("\n");
 
@@ -266,29 +273,47 @@ DIFF
       if (line.startsWith("diff --git")) {
         currentFile = line.split(" b/")[1];
         fileMap.put(currentFile, new ArrayList<>());
+        newLine = 0;
+        diffPosition = 0; // reset for each new file
+
       } else if (line.startsWith("@@")) {
         String[] parts = line.split(" ");
         String newPart = parts[2];
         newLine = Integer.parseInt(newPart.split(",")[0].replace("+", ""));
+        diffPosition++; // the @@ hunk header line itself counts as position 1
+
       } else if (line.startsWith("+") && !line.startsWith("+++")) {
-        fileMap.get(currentFile).add(new DiffLine(currentFile, newLine, line.substring(1)));
+        // added line — advances both diffPosition and newLine
+        fileMap
+            .get(currentFile)
+            .add(new DiffLine(currentFile, newLine, diffPosition, line.substring(1)));
         newLine++;
-      } else if (!line.startsWith("-")) {
+        diffPosition++;
+
+      } else if (line.startsWith("-") && !line.startsWith("---")) {
+        // removed line — advances diffPosition only (line doesn't exist in new file)
+        diffPosition++;
+
+      } else if (!line.startsWith("---") && !line.startsWith("+++")) {
+        // context line (unchanged) — advances both
         newLine++;
+        diffPosition++;
       }
+      // "---" and "+++" are file header lines; they don't count toward diff position
     }
 
     return fileMap;
   }
 
-  static int mapToActualLine(Map<String, List<DiffLine>> fileMap, String file, int relativeLine) {
+  // Maps Claude's relativeLine (Nth added line in file) → diff position for GitHub API
+  static int mapToPosition(Map<String, List<DiffLine>> fileMap, String file, int relativeLine) {
     List<DiffLine> lines = fileMap.get(file);
 
     if (lines == null || relativeLine <= 0 || relativeLine > lines.size()) {
       return -1;
     }
 
-    return lines.get(relativeLine - 1).lineNumber;
+    return lines.get(relativeLine - 1).position;
   }
 
   static String extractJsonArray(String text) {
