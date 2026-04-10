@@ -20,7 +20,8 @@ public class ClaudeReview {
 
     String response = callClaude(prompt);
 
-    JSONArray issues = new JSONArray(response);
+    String cleaned = extractJsonArray(response);
+    JSONArray issues = new JSONArray(cleaned);
     Map<String, List<DiffLine>> fileMap = parseDiff(diff);
 
     for (int i = 0; i < issues.length(); i++) {
@@ -288,5 +289,16 @@ DIFF
     }
 
     return lines.get(relativeLine - 1).lineNumber;
+  }
+
+  static String extractJsonArray(String text) {
+    int start = text.indexOf('[');
+    int end = text.lastIndexOf(']');
+
+    if (start == -1 || end == -1 || end <= start) {
+      throw new RuntimeException("No valid JSON array found in response:\n" + text);
+    }
+
+    return text.substring(start, end + 1);
   }
 }
