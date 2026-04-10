@@ -167,7 +167,7 @@ DIFF
     messages.put(userMessage);
 
     JSONObject bodyJson = new JSONObject();
-    bodyJson.put("model", "claude-3-haiku-20240307");
+    bodyJson.put("model", "claude-4-5-haiku-latest");
     bodyJson.put("temperature", 0);
     bodyJson.put("max_tokens", 1500);
     bodyJson.put("messages", messages);
