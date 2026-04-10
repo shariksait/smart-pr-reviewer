@@ -4,6 +4,8 @@ import java.net.*;
 import java.net.http.*;
 import java.nio.file.*;
 import org.json.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class ClaudeReview {
 
@@ -55,6 +57,9 @@ public class ClaudeReview {
 You are a senior software engineer reviewing a pull request.
 
 Return ONLY valid JSON array.
+No explanation.
+No markdown.
+No extra text.
 
 Each item must contain:
 - file (string)
@@ -75,17 +80,20 @@ Diff:
   // ---------------- CLAUDE API ----------------
   static String callClaude(String prompt) throws Exception {
 
-    String body =
-        """
-        {
-          "model": "claude-3-5-sonnet-20241022",
-          "max_tokens": 1500,
-          "messages": [
-            { "role": "user", "content": "%s" }
-          ]
-        }
-        """
-            .formatted(prompt.replace("\"", "\\\""));
+    JSONObject userMessage = new JSONObject();
+    userMessage.put("role", "user");
+    userMessage.put("content", prompt);
+
+    JSONArray messages = new JSONArray();
+    messages.put(userMessage);
+
+    JSONObject bodyJson = new JSONObject();
+    bodyJson.put("model", "claude-3-5-sonnet-20241022");
+    bodyJson.put("temperature", 0);
+    bodyJson.put("max_tokens", 1500);
+    bodyJson.put("messages", messages);
+
+    String body = bodyJson.toString();
 
     HttpRequest request =
         HttpRequest.newBuilder()
@@ -102,8 +110,21 @@ Diff:
 
     JSONObject json = new JSONObject(response.body());
 
+    if (json.has("error")) {
+      throw new RuntimeException("Claude API error: " + json.getJSONObject("error"));
+    }
+
     JSONArray content = json.getJSONArray("content");
-    return content.getJSONObject(0).getString("text");
+
+    for (int i = 0; i < content.length(); i++) {
+      JSONObject part = content.getJSONObject(i);
+
+      if ("text".equals(part.getString("type"))) {
+        return part.getString("text");
+      }
+    }
+
+    throw new RuntimeException("No text content found in Claude response");
   }
 
   // ---------------- INLINE COMMENT ----------------
