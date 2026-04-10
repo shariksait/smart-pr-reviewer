@@ -44,6 +44,9 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Fix gradlew permissions
+        run: chmod +x gradlew
+
       - name: Run Review Bot
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
