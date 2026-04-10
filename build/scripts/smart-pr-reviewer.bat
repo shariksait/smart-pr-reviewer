@@ -72,7 +72,7 @@ set CLASSPATH=%APP_HOME%\lib\smart-pr-reviewer-1.0.0-plain.jar;%APP_HOME%\lib\sp
 
 
 @rem Execute smart-pr-reviewer
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %SMART_PR_REVIEWER_OPTS%  -classpath "%CLASSPATH%" ClaudeReview %*
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %SMART_PR_REVIEWER_OPTS%  -classpath "%CLASSPATH%" com.example.api.ClaudeReview %*
 
 :end
 @rem End local scope for the variables with windows NT shell
