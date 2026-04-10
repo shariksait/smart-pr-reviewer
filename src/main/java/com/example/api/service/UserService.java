@@ -8,17 +8,17 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserService {
 
-    private final ExternalApiClient externalApiClient;
+  private final ExternalApiClient externalApiClient;
 
-    public UserService(ExternalApiClient externalApiClient) {
-        this.externalApiClient = externalApiClient;
-    }
+  public UserService(ExternalApiClient externalApiClient) {
+    this.externalApiClient = externalApiClient;
+  }
 
-    public UserResponse processUser(UserRequest request) {
-        String externalData = externalApiClient.fetchData();
+  public UserResponse processUser(UserRequest request) {
+    String externalData = externalApiClient.fetchData();
 
-        String message = "User " + request.getName() + " processed successfully";
+    String message = "User " + request.getName() + " processed successfully";
 
-        return new UserResponse(message, externalData);
-    }
+    return new UserResponse(message, externalData);
+  }
 }
