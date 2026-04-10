@@ -1,0 +1,53 @@
+name: Claude PR Inline Review
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: contains(github.event.comment.body, 'Review pr')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get PR number
+        run: echo "PR=${{ github.event.issue.number }}" >> $GITHUB_ENV
+
+      - name: Fetch PR files
+        run: |
+          curl -L \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/${{ env.PR }}/files \
+            -o files.json
+
+      - name: Fetch PR metadata (SHA)
+        run: |
+          curl -L \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/${{ env.PR }} \
+            -o pr.json
+
+      - name: Extract SHA
+        run: |
+          echo "PR_SHA=$(jq -r .head.sha pr.json)" >> $GITHUB_ENV
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Compile Java
+        run: javac -cp src src/ClaudeReview.java
+
+      - name: Run Review Bot
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ env.PR }}
+          PR_SHA: ${{ env.PR_SHA }}
+        run: java -cp src ClaudeReview

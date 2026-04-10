@@ -2,11 +2,17 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.2.5'
     id 'io.spring.dependency-management' version '1.1.4'
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'application'
 }
 
 group = 'com.example'
 version = '1.0.0'
-sourceCompatibility = '17'
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
 
 repositories {
     mavenCentral()
@@ -18,6 +24,7 @@ dependencies {
 
     // JSON (comes by default, but explicit for clarity)
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.json:json:20240303'
 
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -26,4 +33,15 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+application {
+    mainClass = 'ClaudeReview'
+}
+
+spotless {
+    java {
+        googleJavaFormat('1.15.0')
+        target 'src/**/*.java', 'src/*.java'
+    }
 }
