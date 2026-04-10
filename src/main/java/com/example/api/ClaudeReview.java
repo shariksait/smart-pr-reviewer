@@ -3,6 +3,7 @@ package com.example.api;
 import java.net.*;
 import java.net.http.*;
 import java.nio.file.*;
+import java.util.*;
 import org.json.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -20,13 +21,21 @@ public class ClaudeReview {
     String response = callClaude(prompt);
 
     JSONArray issues = new JSONArray(response);
+    Map<String, List<DiffLine>> fileMap = parseDiff(diff);
 
     for (int i = 0; i < issues.length(); i++) {
       JSONObject issue = issues.getJSONObject(i);
 
-      postInlineComment(issue.getString("file"), issue.getInt("line"), issue.getString("comment"));
-    }
+      String file = issue.getString("file");
+      int relativeLine = issue.getInt("relativeLine");
+      String comment = issue.getString("comment");
 
+      int actualLine = mapToActualLine(fileMap, file, relativeLine);
+
+      if (actualLine != -1) {
+        postInlineComment(file, actualLine, comment);
+      }
+    }
     System.out.println("Review completed.");
   }
 
@@ -63,11 +72,15 @@ Return ONLY a valid JSON array. No explanation. No markdown. No extra text.
 Each item MUST follow this exact structure:
 {
   "file": "string",
-  "line": number,
+  "relativeLine": number,
   "severity": "HIGH | MEDIUM | LOW",
   "comment": "clear, specific, actionable feedback"
 }
 
+Rules:
+- relativeLine refers ONLY to added lines (+)
+- Count starts from 1 per file
+- Do NOT use actual file line numbers
 ------------------------
 REVIEW PRIORITIES
 ------------------------
@@ -225,5 +238,55 @@ DIFF
   // ---------------- ESCAPE JSON ----------------
   static String escape(String s) {
     return s.replace("\"", "\\\"");
+  }
+
+  static class DiffLine {
+    String file;
+    int lineNumber;
+    String content;
+
+    DiffLine(String file, int lineNumber, String content) {
+      this.file = file;
+      this.lineNumber = lineNumber;
+      this.content = content;
+    }
+  }
+
+  static Map<String, List<DiffLine>> parseDiff(String diff) {
+    Map<String, List<DiffLine>> fileMap = new HashMap<>();
+
+    String currentFile = null;
+    int newLine = 0;
+
+    String[] lines = diff.split("\n");
+
+    for (String line : lines) {
+
+      if (line.startsWith("diff --git")) {
+        currentFile = line.split(" b/")[1];
+        fileMap.put(currentFile, new ArrayList<>());
+      } else if (line.startsWith("@@")) {
+        String[] parts = line.split(" ");
+        String newPart = parts[2];
+        newLine = Integer.parseInt(newPart.split(",")[0].replace("+", ""));
+      } else if (line.startsWith("+") && !line.startsWith("+++")) {
+        fileMap.get(currentFile).add(new DiffLine(currentFile, newLine, line.substring(1)));
+        newLine++;
+      } else if (!line.startsWith("-")) {
+        newLine++;
+      }
+    }
+
+    return fileMap;
+  }
+
+  static int mapToActualLine(Map<String, List<DiffLine>> fileMap, String file, int relativeLine) {
+    List<DiffLine> lines = fileMap.get(file);
+
+    if (lines == null || relativeLine <= 0 || relativeLine > lines.size()) {
+      return -1;
+    }
+
+    return lines.get(relativeLine - 1).lineNumber;
   }
 }
