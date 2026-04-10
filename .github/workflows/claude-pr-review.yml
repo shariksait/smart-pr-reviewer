@@ -6,8 +6,12 @@ on:
 
 jobs:
   review:
-    if: contains(github.event.comment.body, 'Review pr')
+    if: github.event.issue.pull_request != null && contains(github.event.comment.body, 'Review pr')
     runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
 
     steps:
       - name: Checkout repo
@@ -41,7 +45,11 @@ jobs:
           java-version: 17
 
       - name: Compile Java
-        run: javac -cp src src/ClaudeReview.java
+        run: javac src/main/java/ClaudeReview.java
+
+      - name: Download JSON lib
+        run: |
+          curl -L https://repo1.maven.org/maven2/org/json/json/20231013/json-20231013.jar -o json.jar  
 
       - name: Run Review Bot
         env:

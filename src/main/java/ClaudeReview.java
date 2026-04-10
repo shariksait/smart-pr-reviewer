@@ -41,7 +41,10 @@ public class ClaudeReview {
     HttpClient client = HttpClient.newHttpClient();
     HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-    return response.body().substring(0, Math.min(15000, response.body().length()));
+    if (response.body().length() > 15000) {
+      return response.body().substring(0, 15000);
+    }
+    return response.body();
   }
 
   // ---------------- PROMPT ----------------
@@ -97,7 +100,8 @@ Diff:
 
     JSONObject json = new JSONObject(response.body());
 
-    return json.getJSONArray("content").getJSONObject(0).getString("text");
+    JSONArray content = json.getJSONArray("content");
+    return content.getJSONObject(0).getString("text");
   }
 
   // ---------------- INLINE COMMENT ----------------
