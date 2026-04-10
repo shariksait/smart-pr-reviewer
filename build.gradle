@@ -29,6 +29,7 @@ dependencies {
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.mockito:mockito-core:5.7.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
 }
 
 test {
@@ -36,7 +37,7 @@ test {
 }
 
 application {
-    mainClass = 'ClaudeReview'
+    mainClass = 'com.example.api.ClaudeReview'
 }
 
 spotless {

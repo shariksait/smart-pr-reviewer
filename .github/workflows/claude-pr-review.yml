@@ -44,13 +44,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Compile Java
-        run: javac src/main/java/ClaudeReview.java
-
-      - name: Download JSON lib
-        run: |
-          curl -L https://repo1.maven.org/maven2/org/json/json/20231013/json-20231013.jar -o json.jar  
-
       - name: Run Review Bot
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -58,4 +51,4 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ env.PR }}
           PR_SHA: ${{ env.PR_SHA }}
-        run: java -cp src ClaudeReview
+        run: ./gradlew clean run
